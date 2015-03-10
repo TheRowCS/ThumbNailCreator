@@ -19,18 +19,36 @@ package me.benaherne.ThumbnailCreator;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-
+import java.util.Scanner;
 /**
  * Creates Picture and Fileloader objects and runs the program.
  * Implements Runnable interface.
  */
 public class ThumbnailCreator implements Runnable {
     private ArrayList<File> imageList;
-
-    public ThumbnailCreator(){
+    public final String SOURCE_DIRECTORY;
+    private int WIDTH;
+    private int HEIGHT;
+    private final double RATIO;
+    private final boolean IS_RATIO;
+    
+    public ThumbnailCreator(final String SOURCE_DIRECTORY, final int WIDTH, final int HEIGHT){
         this.imageList = new ArrayList<>();
+        this.SOURCE_DIRECTORY = SOURCE_DIRECTORY;
+        this.WIDTH = WIDTH;
+        this.HEIGHT = HEIGHT;
+        RATIO = 0;
+        IS_RATIO = false;
     }
-
+    
+    public ThumbnailCreator(final String SOURCE_DIRECTORY, final double RATIO){
+        this.imageList = new ArrayList<>();
+        this.SOURCE_DIRECTORY = SOURCE_DIRECTORY;
+        this.RATIO = RATIO;
+        this.WIDTH = 0;
+        this.HEIGHT = 0;
+        IS_RATIO = true;
+    }
     /**
      * Runs the Thumbnail Creator program, implements Runnable
      * Can be used in a new thread.
@@ -47,25 +65,58 @@ public class ThumbnailCreator implements Runnable {
     private void generateThumbnails() throws IOException {
         for(File file: imageList){
             System.out.println(file.getName());
-            Picture pic = new Picture(file, 100, 0);
+            Picture pic;
+            if(IS_RATIO){
+            	pic = new Picture(file, RATIO);
+            }else{
+            	pic = new Picture(file, WIDTH, HEIGHT);
+            }
             pic.makeThumbnail();
         }
         System.out.println("*********** Execution complete ***********");
     }
-
-    public static void main(String[] args) throws InterruptedException {
+    
+    private static ThumbnailCreator getInput(){
+    	String sourceDir = "/";
+    	int inputWidth = 100;
+    	int inputHeight = 0;
+    	double inputRatio;
+    	System.out.print("Path to image directory: ");
+    	Scanner src = new Scanner(System.in);
+    	Scanner height;
+    	sourceDir = src.nextLine();
+    	
+    	System.out.print("\nEnter a thumbnail width(use a decimal to scale using a percentage): ");
+    	Scanner width = new Scanner(System.in);
+    	if(width.hasNextDouble()){
+    		inputRatio = width.nextDouble();
+    		src.close();
+    		width.close();
+    		return new ThumbnailCreator(sourceDir, inputRatio);
+    	}else{
+	    	inputWidth = width.nextInt();
+	    	System.out.print("\rEnter a thumbnail height(use 0 to keep height proportionate to width: ");
+	    	height = new Scanner(System.in);
+	    	inputHeight = width.nextInt();
+    	}
+    	src.close();
+    	width.close();
+    	height.close();
+    	return new ThumbnailCreator(sourceDir, inputWidth, inputHeight);
+    }
+    
+    public static void runCLI() throws InterruptedException {
         System.out.println("ThumbnailCreator: Bendat 08/03/15");
-        if (args.length < 1) {
-            System.err.println("No valid image file found. Please provide one.");
-            System.exit(0);
-        }
-        ThumbnailCreator tnc = new ThumbnailCreator();
-        String sourceFile = args[0];
+        ThumbnailCreator tnc = getInput();
         Thread thread;
-        System.out.println("*** File located: execution commencing ***");
-        FileLoader images = new FileLoader(sourceFile);
-        images.retrieveFiles();
-        tnc.imageList = FileLoader.getFiles();
+        if(new File(tnc.SOURCE_DIRECTORY).exists()){
+        	System.out.println("*** FILE EXISTS***");
+        }else{
+        	System.out.println("*** File not Found, exiting program ***");
+        	System.exit(0);
+        }
+        FileLoader folder = new FileLoader(tnc.SOURCE_DIRECTORY);
+        tnc.imageList = folder.getFiles();
         thread = new Thread(tnc);
         thread.start();
     }
